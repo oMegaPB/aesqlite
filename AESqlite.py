@@ -200,7 +200,7 @@ class SqlDatabase:
                 return DataBaseResponse(status=bool(cur.rowcount), value=cur.rowcount)
             raise DataBaseException("Empty data to replace")
 
-# a = SqlDatabase("test.db", "test")
+# a = SqlDatabase(dbpath="test.db", aespwd="test")
 # table = a.table("sugoma", "amomoma TEXT")
 # print(a.add([{"amomoma": "tr1"}, {"amomoma": "1241"}], "sugoma"))
 # print(a.fetch({}, "sugoma", mode=2))
