@@ -1,2 +1,2 @@
 # aesqlite
-My wrapper for sqlite with AES encryption support
+Wrapper for sqlite with AES encryption support
