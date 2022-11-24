@@ -68,29 +68,27 @@ class Table:
 
 class DataBaseResponse:
     def __init__(self, status: bool, value: t.Optional[xResponseValueT] = None) -> None:
-        self._status = status
-        self._value = value if value is not None else None
+        self.__status = status
+        self.__value = value if value is not None else None
     
     def __repr__(self) -> str:
-        return f'<DataBaseResponse status={self._status}, value={self._value}>'
+        return f'<DataBaseResponse status={self.__status}, value={self.__value}>'
     
     def __len__(self) -> int:
-        return len(self._value)  # type: ignore
+        return len(self.__value)  # type: ignore
     
     @property
     def status(self) -> bool:
-        return self._status
+        return self.__status
     
     @property
     def value(self) -> xResponseValueT:
-        return self._value
+        return self.__value
 
 class SqlDatabase:
     def __init__(self, dbpath: t.Optional[str] = None, aespwd: t.Optional[str] = None) -> None:
         self.aes = False
         self.dbpath = dbpath if dbpath else "sqlite.db"
-        self.privkey = None
-        self.pubkey = None
         if aespwd is not None and isinstance(aespwd, str):
             self.aes = True
             self.pwd = md5(aespwd.encode()).digest()
@@ -200,7 +198,7 @@ class SqlDatabase:
                 return DataBaseResponse(status=bool(cur.rowcount), value=cur.rowcount)
             raise DataBaseException("Empty data to replace")
 
-# a = SqlDatabase(dbpath="test.db", aespwd="test")
+# a = SqlDatabase("test.db", "test")
 # table = a.table("sugoma", "amomoma TEXT")
 # print(a.add([{"amomoma": "tr1"}, {"amomoma": "1241"}], "sugoma"))
 # print(a.fetch({}, "sugoma", mode=2))
