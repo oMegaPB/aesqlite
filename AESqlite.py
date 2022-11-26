@@ -1,7 +1,9 @@
+import base64
 import sqlite3
 import typing as t
+from enum import IntEnum
 from hashlib import md5
-import base64
+
 from Crypto.Cipher import AES
 
 xInputDataT = t.Union[t.List[t.Dict[str, t.Any]], t.Dict[str, t.Any]]
@@ -9,6 +11,10 @@ xResponseValueT = t.Optional[t.Union[t.List[t.Dict[str, t.Any]], t.Dict[str, t.A
 
 class DataBaseException(Exception):
     pass
+
+class FetchMode(IntEnum):
+    FETCH_ONE = 1
+    FETCH_ALL = 2
 
 class Table:
     def __init__(self, name: str, db: "SqlDatabase", *, created: t.Optional[bool] = None) -> None:
@@ -33,9 +39,7 @@ class Table:
                 return False
     
     @property
-    def rows(self) -> t.Optional[t.Dict[t.Any, t.Any]]:
-        if not self.exists:
-            return None
+    def rows(self) -> t.Dict[t.Any, t.Any]:
         tcolumns = [x[1] for x in self._table_info]
         data = {x: {tcolumns[z]: y[z] for z, _ in enumerate(tcolumns)} for x, y in enumerate(self._rows, start=1)}
         data["_types"] = {tcolumns[x]: y if y else "UNDEFINED" for x, y in enumerate([x[2] for x in self._table_info])} # type: ignore
@@ -43,15 +47,11 @@ class Table:
         return data
 
     @property
-    def columns(self) -> t.Optional[t.Dict[t.Any, t.Any]]:
-        if not self.exists:
-            return None
-        return {int(x[0]) + 1: {x[1]: x[2] if x[2] else "UNDEFINED"} for x in self._table_info}
+    def columns(self) -> t.Dict[t.Any, t.Any]:
+        return {x[1]: x[2] if x[2] else "UNDEFINED" for x in self._table_info}
     
     @property
-    def pretty_print(self) -> t.Optional[str]:
-        if not self.exists:
-            return None
+    def pretty_print(self) -> str:
         columns = "0. | " + " | ".join([x[1] + f": {x[2] if x[2] else 'UNDEFINED'}" for x in self._table_info]) + " |\n"
         for x, row in enumerate(self._rows):
             columns += f"{x + 1}. | " + f"{' | '.join([str(x) for x in row])}" + " |\n"
@@ -94,6 +94,9 @@ class SqlDatabase:
             self.pwd = md5(aespwd.encode()).digest()
 
     def create_connection(self, **kwargs) -> sqlite3.Connection:
+        """
+        Create a connection for a given database with sqlite3.Row row factory
+        """
         conn = sqlite3.connect(self.dbpath, **kwargs)
         conn.row_factory = sqlite3.Row
         return conn
@@ -105,14 +108,16 @@ class SqlDatabase:
         try:
             return AES.new(self.pwd, AES.MODE_GCM, self.pwd).decrypt(base64.b64decode(data.encode("ascii"))).decode()
         except UnicodeDecodeError as e:
-            raise RuntimeError(f'Invalid AES encryption password. {e.__class__.__name__}')
+            raise RuntimeError(f'Invalid AES decryption password. {e.__class__.__name__}')
+        except Exception:
+            raise
 
     @property
     def tables(self) -> t.List[Table]:
         with self.create_connection() as con:
             cur = con.cursor()
             cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            return [Table(x[0], db=self) for x in cur.fetchall()]
+        return [Table(x[0], db=self) for x in cur.fetchall()]
     
     def table(self, name: str, *columns) -> "Table":
         with self.create_connection() as con:
@@ -123,32 +128,75 @@ class SqlDatabase:
             except sqlite3.OperationalError: # table is not exist
                 created = True
             cur.execute(f"CREATE TABLE IF NOT EXISTS {name}{columns};")
-            return Table(name, created=created, db=self)
+        return Table(name, created=created, db=self)
     
     def drop_table(self, name: str) -> bool:
         return Table(name, self).drop()
     
     def execute(self, query: str) -> sqlite3.Cursor:
+        """
+        Executes Custom SQL query
+        """
         with self.create_connection() as con:
             cur = con.cursor()
             cur.execute(query)
             return cur
     
-    def fetch(self, data: t.Dict[str, t.Any], table: str, mode: t.Literal[1, 2] = 1) -> DataBaseResponse:
+    def fetch(
+        self, 
+        data: t.Dict[str, t.Any], 
+        table: str, 
+        mode: t.Literal[FetchMode.FETCH_ONE, FetchMode.FETCH_ALL] = FetchMode.FETCH_ONE
+    ) -> DataBaseResponse:
+        """
+        Usage:
+            >>> db = SqlDatabase("test.db")
+            >>> table = db.table("test", "value TEXT", "smth INT")
+            <Table name="test" rows=0>
+
+            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
+            
+            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+            <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
+        """
         with self.create_connection() as con:
             if self.aes:
-                data = {x: self._aes_encrypt(y) for x, y in data.items()}
+                data = {x: self._aes_encrypt(str(y)) for x, y in data.items()}
             cur = con.cursor()
             condition = " AND ".join([f"{x}=?" for x in data.keys()])
-            sql = f"SELECT * FROM {table} {'WHERE ' + condition + ';' if data != {} else ';'}"
+            sql = f"SELECT * FROM {table}{' WHERE ' + condition + ';' if data != {} else ';'}"
             cur.execute(sql, tuple([x for x in data.values()]))
             result = [dict(x) for x in cur.fetchall()]
             if self.aes:
-                result = [{z: self._aes_decrypt(y) for z, y in x.items()} for x in result]
+                result = [{z: int(self._aes_decrypt(y)) if Table(table, db=self).columns.get(z) == "INT" else self._aes_decrypt(y) for z, y in x.items()} for x in result]
             result = result[0] if mode == 1 and result else result
         return DataBaseResponse(status=bool(result), value=result if result else None)
     
-    def remove(self, data: xInputDataT, table: str, limit: t.Optional[int] = None) -> DataBaseResponse:
+    def remove(
+        self, 
+        data: xInputDataT, 
+        table: str, 
+        limit: t.Optional[int] = None
+    ) -> DataBaseResponse:
+        """
+        Usage:
+            >>> db = SqlDatabase("test.db")
+            >>> table = db.table("test", "value TEXT", "smth INT")
+            <Table name="test" rows=0>
+
+            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
+            
+            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+            <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
+
+            >>> db.remove({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+            <DataBaseResponse status=True, value=1> # 1 row affected
+
+            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+            <DataBaseResponse status=False, value=None>
+        """
         with self.create_connection() as con:
             if isinstance(data, list):
                 for x in data:
@@ -162,43 +210,78 @@ class SqlDatabase:
                 con.commit()
         return DataBaseResponse(status=bool(cur.rowcount), value=cur.rowcount if cur.rowcount else None)
     
-    def add(self, data: xInputDataT, table: str) -> DataBaseResponse:
+    def add(
+        self, 
+        data: xInputDataT, 
+        table: str
+    ) -> DataBaseResponse:
+        """
+        Usage:
+            >>> db = SqlDatabase("test.db")
+            >>> table = db.table("test", "value TEXT", "smth INT")
+            <Table name="test" rows=0>
+
+            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
+        """
         with self.create_connection() as con:
             cur = con.cursor()
             raw_data = data
             if self.aes:
                 if isinstance(data, dict):
-                    data = {x: self._aes_encrypt(y) for x, y in data.items()}
+                    data = {x: self._aes_encrypt(str(y)) for x, y in data.items()}
                 else: # isinstance(data, list)
-                    data = [{z: self._aes_encrypt(y) for z, y in x.items()} for x in data]
+                    data = [{z: self._aes_encrypt(str(y)) for z, y in x.items()} for x in data]
             if isinstance(data, list):
                 values = f"{str([tuple([x for x in x.values()]) for x in data])[1:-1]};".replace(",)", ")")
             else: # isinstance(data, dict)
                 values = f"{str(tuple([x for x in data.values()]))};".replace(",)", ")")
             columns = Table(table, db=self).columns
-            if columns:
-                columns = f"({', '.join([list(x.keys())[0] for _, x in columns.items()])})"
-                sql = f"INSERT INTO {table} {columns} VALUES {values}"
-                cur.execute(sql)
-                con.commit()
-                return DataBaseResponse(status=bool(cur.rowcount), value=raw_data)
-            raise DataBaseException(f"Table {table} does not exist")
+            columns = f"({', '.join(list(Table(table, db=self).columns.keys()))})"
+            sql = f"INSERT INTO {table} {columns} VALUES {values}"
+            cur.execute(sql)
+            con.commit()
+            return DataBaseResponse(status=bool(cur.rowcount), value=raw_data)
     
-    def update(self, to_replace: t.Dict[str, t.Any], data: t.Dict[str, t.Any], table: str, limit: t.Optional[int] = None) -> DataBaseResponse:
-        with self.create_connection() as conn:
+    def update(
+        self, 
+        to_replace: t.Dict[str, t.Any], 
+        data: t.Dict[str, t.Any], 
+        table: str, 
+        limit: t.Optional[int] = None
+    ) -> DataBaseResponse:
+        """
+        Usage:
+            >>> db = SqlDatabase("test.db")
+            
+            >>> table = db.table("test", "value TEXT", "smth INT")
+            <Table name="test" rows=0>
+            
+            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
+            
+            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
+            
+            >>> db.update({"value": "smthfortest", "smth": 69420}, {"value": "amogus", 'smth': 123456}, table.name)
+            <DataBaseResponse status=True, value=1> # 1 means 1 row affected
+            
+            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name)
+            <DataBaseResponse status=False, value=None>
+            
+            >>> db.fetch({"value": "amogus", 'smth': 123456}, table.name)
+            <DataBaseResponse status=True, value={"value": "amogus", 'smth': 123456}>
+
+        """
+        with self.create_connection() as con:
             if self.aes:
-                to_replace = {x: self._aes_encrypt(y) for x, y in to_replace.items()}
-                data = {x: self._aes_encrypt(y) for x, y in data.items()}
+                to_replace = {x: self._aes_encrypt(str(y)) for x, y in to_replace.items()}
+                data = {x: self._aes_encrypt(str(y)) for x, y in data.items()}
             values = ", ".join([f"{x} = {y}" if isinstance(y, int) else f"{x} = '{y}'" for x, y in data.items()])
             if values:
-                cur = conn.cursor()
+                cur = con.cursor()
                 condition = " AND ".join([f"{x}=?" for x in to_replace.keys()])
                 sql = f"UPDATE {table} SET {values}{' WHERE ' + condition if condition else ''}{f' LIMIT {limit}' if limit else ''};"
                 cur.execute(sql, tuple([x for x in to_replace.values()]))
                 return DataBaseResponse(status=bool(cur.rowcount), value=cur.rowcount)
             raise DataBaseException("Empty data to replace")
-
-# a = SqlDatabase("test.db", "test")
-# table = a.table("sugoma", "amomoma TEXT")
-# print(a.add([{"amomoma": "tr1"}, {"amomoma": "1241"}], "sugoma"))
-# print(a.fetch({}, "sugoma", mode=2))
