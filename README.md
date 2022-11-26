@@ -3,6 +3,8 @@
 > **create new database and adding tables to it:**
 ```py
 >>> db = SqlDatabase(dbpath: t.Optional[str] = "test.db", aespwd: t.Optional[str] = "test")
+>>> table = db.table("test", "value TEXT", "smth INT")
+<Table name="test" rows=0>
 ```
 > **Using a SqlDatabase.add method:**
 ```py
