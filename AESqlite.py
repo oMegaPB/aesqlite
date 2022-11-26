@@ -148,18 +148,6 @@ class SqlDatabase:
         table: str, 
         mode: t.Literal[FetchMode.FETCH_ONE, FetchMode.FETCH_ALL] = FetchMode.FETCH_ONE
     ) -> DataBaseResponse:
-        """
-        Usage:
-            >>> db = SqlDatabase("test.db")
-            >>> table = db.table("test", "value TEXT", "smth INT")
-            <Table name="test" rows=0>
-
-            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
-            
-            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
-            <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
-        """
         with self.create_connection() as con:
             if self.aes:
                 data = {x: self._aes_encrypt(str(y)) for x, y in data.items()}
@@ -179,24 +167,6 @@ class SqlDatabase:
         table: str, 
         limit: t.Optional[int] = None
     ) -> DataBaseResponse:
-        """
-        Usage:
-            >>> db = SqlDatabase("test.db")
-            >>> table = db.table("test", "value TEXT", "smth INT")
-            <Table name="test" rows=0>
-
-            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
-            
-            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
-            <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
-
-            >>> db.remove({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
-            <DataBaseResponse status=True, value=1> # 1 row affected
-
-            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
-            <DataBaseResponse status=False, value=None>
-        """
         with self.create_connection() as con:
             if isinstance(data, list):
                 for x in data:
@@ -215,15 +185,6 @@ class SqlDatabase:
         data: xInputDataT, 
         table: str
     ) -> DataBaseResponse:
-        """
-        Usage:
-            >>> db = SqlDatabase("test.db")
-            >>> table = db.table("test", "value TEXT", "smth INT")
-            <Table name="test" rows=0>
-
-            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
-        """
         with self.create_connection() as con:
             cur = con.cursor()
             raw_data = data
@@ -250,29 +211,6 @@ class SqlDatabase:
         table: str, 
         limit: t.Optional[int] = None
     ) -> DataBaseResponse:
-        """
-        Usage:
-            >>> db = SqlDatabase("test.db")
-            
-            >>> table = db.table("test", "value TEXT", "smth INT")
-            <Table name="test" rows=0>
-            
-            >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
-            
-            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
-            
-            >>> db.update({"value": "smthfortest", "smth": 69420}, {"value": "amogus", 'smth': 123456}, table.name)
-            <DataBaseResponse status=True, value=1> # 1 means 1 row affected
-            
-            >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name)
-            <DataBaseResponse status=False, value=None>
-            
-            >>> db.fetch({"value": "amogus", 'smth': 123456}, table.name)
-            <DataBaseResponse status=True, value={"value": "amogus", 'smth': 123456}>
-
-        """
         with self.create_connection() as con:
             if self.aes:
                 to_replace = {x: self._aes_encrypt(str(y)) for x, y in to_replace.items()}
