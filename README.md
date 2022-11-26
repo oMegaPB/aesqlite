@@ -1,4 +1,3 @@
----
 **Sqlite3 DataBase wrapper with AES-128 encryption support.**
 ---
 > **create new database and adding tables to it:**
