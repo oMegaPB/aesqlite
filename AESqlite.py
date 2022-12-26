@@ -154,7 +154,7 @@ class SqliteDatabase:
         with self.create_connection() as con:
             cur = con.cursor()
             cur.execute(query)
-            return cur
+        return cur
     
     def fetch(
         self, 
@@ -228,7 +228,9 @@ class SqliteDatabase:
     ) -> DataBaseResponse:
         with self.create_connection() as con:
             to_replace = {x: self._encode(y) for x, y in to_replace.items()}
+            assert all([isinstance(x, str) for x in to_replace.keys()]), "Only strings can be keys."
             data = {x: self._encode(y) for x, y in data.items()}
+            assert all([isinstance(x, str) for x in data.keys()]), "Only strings can be keys."
             values = ", ".join([f"{x} = {y}" if isinstance(y, int) else f"{x} = '{y}'" for x, y in data.items()])
             if values:
                 cur = con.cursor()
