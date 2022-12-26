@@ -45,7 +45,6 @@ class Table:
         tcolumns = [x[1] for x in self._table_info]
         data = {x: {tcolumns[z]: y[z] for z, _ in enumerate(tcolumns)} for x, y in enumerate(self._rows, start=1)}
         data["_types"] = {tcolumns[x]: y if y else "UNDEFINED" for x, y in enumerate([x[2] for x in self._table_info])} # type: ignore
-        data.update({})
         return data
 
     @property
@@ -114,11 +113,10 @@ class SqliteDatabase:
     
     def _encode(self, data: str) -> str:
         if self.datamode == "aes":
-            return base64.b64encode(AES.new(self.pwd, AES.MODE_GCM, self.pwd).encrypt(data.encode())).decode('ascii')
+            return base64.b64encode(AES.new(self.pwd, AES.MODE_GCM, self.pwd).encrypt(str(data).encode())).decode('ascii')
         elif self.datamode == "b64":
-            return base64.b64encode(data.encode()).decode("ascii")
-        else:
-            return data
+            return base64.b64encode(str(data).encode()).decode("ascii")
+        return data
     
     def _decode(self, data: str) -> str:
         if self.datamode == "aes":
@@ -129,8 +127,7 @@ class SqliteDatabase:
                 raise RuntimeError(f'Invalid AES decryption password. {e.__class__.__name__}')
         elif self.datamode == "b64":
             return base64.b64decode(data.encode()).decode("ascii")
-        else:
-            return data
+        return data
 
     @property
     def tables(self) -> t.List[Table]:
@@ -171,7 +168,9 @@ class SqliteDatabase:
             condition = " AND ".join([f"{x}=?" for x in data.keys()])
             sql = f"SELECT * FROM {table}{' WHERE ' + condition + ';' if data != {} else ';'}"
             cur.execute(sql, tuple([x for x in data.values()]))
+            columns = {x: y for sub in [x for x in Table(table, db=self).columns.values()] for x, y in sub.items()} # type: ignore
             result = [{z: self._decode(y) for z, y in x.items()} for x in [dict(x) for x in cur.fetchall()]]
+            result = [{z: int(j) if columns.get(z) == "INT" else j for z, j in x.items()} for x in result] # table type checkings
             result = result[0] if mode == 1 and result else result
         return DataBaseResponse(status=not not result, value=result if result else None)
     
@@ -204,15 +203,16 @@ class SqliteDatabase:
             cur = con.cursor()
             raw_data = data
             if isinstance(data, dict):
+                assert all([isinstance(x, str) for x in data.keys()]), "Only strings can be keys."
                 data = {x: self._encode(y) for x, y in data.items()}
                 values = f"{str(tuple([x for x in data.values()]))};".replace(",)", ")")
             else: # isinstance(data, list)
+                assert all([isinstance(x, str) for sub in data for x in sub.keys()]), "Only strings can be keys."
                 data = [{z: self._encode(y) for z, y in x.items()} for x in data]
                 values = f"{str([tuple([x for x in x.values()]) for x in data])[1:-1]};".replace(",)", ")")
-
             columns = Table(table, db=self).columns
             if columns:
-                columns = f"({', '.join([list(x.keys())[0] for _, x in columns.items()])})"
+                columns = f"({', '.join([list(x.keys())[0] for x in columns.values()])})"
                 sql = f"INSERT INTO {table} {columns} VALUES {values}"
                 cur.execute(sql)
                 con.commit()
