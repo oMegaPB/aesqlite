@@ -2,21 +2,21 @@
 ---
 > **create new database and adding tables to it:**
 ```py
->>> db = SqlDatabase(dbpath: t.Optional[str] = "test.db", aespwd: t.Optional[str] = "test")
+>>> db = SqliteDatabase(dbpath: t.Optional[str] = "test.db", aespwd: t.Optional[str] = "test")
 >>> table = db.table("test", "value TEXT", "smth INT")
 <Table name="test" rows=0>
 ```
-> **Using a SqlDatabase.add method:**
+> **Using a SqliteDatabase.add method:**
 ```py
 >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
 <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
 ```
-> **Using a SqlDatabase.fetch method:**
+> **Using a SqliteDatabase.fetch method:**
 ```py
 >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=FetchMode.FETCH_ALL) 
 <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
 ```
-> **Using a SqlDatabase.remove method:**
+> **Using a SqliteDatabase.remove method:**
 ```py
 >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
 <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
@@ -30,9 +30,9 @@
 >>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=FetchMode.FETCH_ALL)
 <DataBaseResponse status=False, value=None>
 ```
-> **Using a SqlDatabase.update method:**
+> **Using a SqliteDatabase.update method:**
 ```py
->>> db = SqlDatabase("test.db")
+>>> db = SqliteDatabase("test.db")
 
 >>> table = db.table("test", "value TEXT", "smth INT")
 <Table name="test" rows=0>
