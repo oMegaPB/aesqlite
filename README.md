@@ -2,7 +2,11 @@
 ---
 > **create new database and adding tables to it:**
 ```py
->>> db = SqliteDatabase(dbpath: t.Optional[str] = "test.db", datamode: t.Literal["aes", "b64", "default"] = "aes", aespwd: t.Optional[str] = "test")
+>>> db = SqliteDatabase(
+        dbpath: t.Optional[str] = "test.db", 
+        datamode: t.Literal["aes", "b64", "default"] = "aes", 
+        aespwd: t.Optional[str] = "test"
+)
 >>> table = db.table("test", "value TEXT", "smth INT")
 <Table name="test" rows=0>
 ```
