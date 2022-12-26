@@ -21,13 +21,13 @@
 >>> db.add({"value": "smthfortest", "smth": 69420}, table.name)
 <DataBaseResponse status=True, value={'value': 'smthfortest', 'smth': 69420}>
 
->>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+>>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=FetchMode.FETCH_ALL)
 <DataBaseResponse status=True, value=[{'value': 'smthfortest', 'smth': 69420}]>
 
->>> db.remove({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+>>> db.remove({"value": "smthfortest", "smth": 69420}, table.name, mode=FetchMode.FETCH_ALL)
 <DataBaseResponse status=True, value=1> # 1 row affected
 
->>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=2)
+>>> db.fetch({"value": "smthfortest", "smth": 69420}, table.name, mode=FetchMode.FETCH_ALL)
 <DataBaseResponse status=False, value=None>
 ```
 > **Using a SqlDatabase.update method:**
