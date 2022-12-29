@@ -99,12 +99,13 @@ class SqliteDatabase:
     ) -> None:
         self.datamode = datamode.lower()
         assert self.datamode in ["b64", "aes", "default"], "Mode must be either b64 or AES or default."
-        if self.datamode == "aes" and not aespwd:
-            raise ValueError("AES mode requires a data-encryption password.")
-        self.aespwd = aespwd if self.datamode == "aes" else None
+        if self.datamode == "aes":
+            assert aespwd, "AES mode requires a data-encryption password."
+            self.pwd = md5(aespwd.encode()).digest()
+        if aespwd:
+            assert self.datamode == "aes"
+        self.aespwd = aespwd
         self.dbpath = dbpath if dbpath else "sqlite.db"
-        if self.datamode == "aes" and self.aespwd is not None:
-            self.pwd = md5(self.aespwd.encode()).digest()
 
     def create_connection(self, **kwargs) -> sqlite3.Connection:
         conn = sqlite3.connect(self.dbpath, **kwargs)
@@ -154,7 +155,8 @@ class SqliteDatabase:
         with self.create_connection() as con:
             cur = con.cursor()
             cur.execute(query)
-        return cur
+            data = [dict(x) for x in cur.fetchall()]
+        return type("DataBaseResponse", (), {"status": not not data, "cursor": cur, "value": data, "query": query})
     
     def fetch(
         self, 
