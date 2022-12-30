@@ -4,7 +4,7 @@
 ```py
 >>> db = SqliteDatabase(
         dbpath: t.Optional[str] = "test.db", 
-        datamode: t.Literal["aes", "b64", "default"] = "aes", 
+        datamode: t.Literal["secure", "b64", "default"] = "default", 
         aespwd: t.Optional[str] = "test"
 )
 >>> table = db.table("test", "value TEXT", "smth INT")
@@ -56,3 +56,4 @@
 >>> db.fetch({"value": "amogus", 'smth': 123456}, table.name)
 <DataBaseResponse status=True, value={"value": "amogus", 'smth': 123456}>
 ```
+**Now supports all data types**
