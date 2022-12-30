@@ -1,4 +1,4 @@
-**Sqlite3 DataBase wrapper with AES encryption support. Also supports base64 encoding.**
+**Sqlite3 DataBase wrapper with encryption support. Also supports just base64 encoding.**
 ---
 > **create new database and adding tables to it:**
 ```py
