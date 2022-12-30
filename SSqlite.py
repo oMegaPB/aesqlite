@@ -229,13 +229,17 @@ class SqliteDatabase:
         self, 
         data: t.Dict[str, t.Any], 
         table: str, 
-        mode: int = FetchMode.FETCH_ONE
+        mode: int = FetchMode.FETCH_ONE,
+        names: t.Optional[t.Iterable[str]] = None,
+        order_by: t.Optional[str] = None,
+        limit: t.Optional[int] = None,
+        skip: t.Optional[int] = None
     ) -> DataBaseResponse:
         with self.create_connection() as con:
             data = {x: self._encode(y) for x, y in data.items()}
             cur = con.cursor()
             condition = " AND ".join([f"{x}=?" for x in data.keys()])
-            sql = f"SELECT * FROM {table}{' WHERE ' + condition + ';' if data != {} else ';'}"
+            sql = f"SELECT {', '.join(names) if names else '*'} FROM {table}{' WHERE ' + condition if data != {} else ''}{' ORDER BY '+ order_by if order_by else ''}{' LIMIT ' + str(limit) if limit else ''}{' OFFSET ' + str(skip) if skip else ''}" + ";"
             cur.execute(sql, tuple([x for x in data.values()]))
             columns = {x: y for sub in [x for x in Table(table, db=self).columns.values()] for x, y in sub.items()} # type: ignore
             result = [{z: self._decode(y) for z, y in x.items()} for x in [dict(x) for x in cur.fetchall()]]
@@ -247,7 +251,8 @@ class SqliteDatabase:
         self, 
         data: xInputDataT, 
         table: str, 
-        limit: t.Optional[int] = None
+        limit: t.Optional[int] = None,
+        skip: t.Optional[int] = None
     ) -> DataBaseResponse:
         with self.create_connection() as con:
             if isinstance(data, list):
