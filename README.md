@@ -5,7 +5,7 @@
 >>> db = SqliteDatabase(
         dbpath: t.Optional[str] = "test.db", 
         datamode: t.Literal["secure", "b64", "default"] = "default", 
-        encpwd: t.Optional[str] = "test"
+        encpwd: t.Optional[str] = None
 )
 >>> table = db.table("test", "value TEXT", "smth INT")
 <Table name="test" rows=0>
